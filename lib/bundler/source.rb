@@ -16,7 +16,6 @@ module Bundler
       def initialize(options = {})
         @options = options
         @remotes = (options["remotes"] || []).map { |r| normalize_uri(r) }
-        @fetchers = {}
         @allow_remote = false
         @allow_cached = false
 
@@ -212,16 +211,19 @@ module Bundler
 
       def remote_specs
         @remote_specs ||= begin
-          idx     = Index.new
-          old     = Bundler.rubygems.sources
+          idx       = Index.new
+          old       = Bundler.rubygems.sources
+          gem_names = dependencies && dependencies.map{|d| d.name }
 
-          remotes.each do |uri|
-
-            @fetchers[uri] = Bundler::Fetcher.new(uri)
-            gem_names = dependencies && dependencies.map{|d| d.name }
-
-            idx.use @fetchers[uri].specs(gem_names, self)
+          rubygems = remotes.grep(/rubygems.org/)
+          (remotes-rubygems).each do |uri|
+            uri_specs = Bundler::Fetcher.new(uri).specs(gem_names, self)
+            gem_names += uri_specs.missing_dependencies
+            idx.use uri_specs
           end
+
+          idx.use Bundler::Fetcher.new(rubygems).specs(gem_names, self) if rubygems
+
           idx
         ensure
           Bundler.rubygems.sources = old
