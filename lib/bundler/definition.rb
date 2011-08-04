@@ -161,15 +161,16 @@ module Bundler
       @index ||= Index.build do |idx|
         rubygems_sources = @sources.select{|s| s.is_a?(Bundler::Source::Rubygems) }
         other_sources    = @sources - rubygems_sources
+        unmet_deps = []
 
         other_sources.each do |s|
           source_index = s.specs
-          @dependencies += source_index.unmet_dependencies
+          unmet_deps += source_index.unmet_dependencies
           idx.add_source source_index
         end
 
         rubygems_sources.each do |s|
-          s.dependencies = @dependencies
+          s.dependencies = (@dependencies + unmet_deps)
           idx.add_source s.specs
         end
       end
